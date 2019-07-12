@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <cstring>
 
 #include <tao/json.hpp>
 #include <tao/json/external/pegtl.hpp>
@@ -29,17 +30,32 @@ struct action<value> {
     }
 };
 
+struct options {
+    bool json_only=false;
+};
+
+options parse_args(int count, char const* values[]) {
+    options opts;
+    for(std::size_t i = 1; i < count; i++) {
+        if( std::strcmp(values[i], "--json-only") == 0 ) {
+            opts.json_only=true;
+        }
+
+    }
+    return opts;
+};
+
+
 } // namespace expander
 
-int main() {
+int main(int count, char const* values[]) {
     std::size_t pos;
     expander::state state;
+    auto options = expander::parse_args(count, values);
 
     for (std::string line; std::getline(std::cin, line);) {
-        pos = 0;
-        state = 0;
-
         for (std::size_t pos = 0; pos < line.size(); pos++) {
+            state = 0;
             if (line[pos] == '{') {
                 std::string_view view(line.data() + pos, line.length() - pos);
                 pegtl::memory_input in(view, std::string("symbol at: " + std::to_string(pos)));
@@ -53,9 +69,9 @@ int main() {
                 if (!json_view.empty()) {
                     try {
                         auto value = from_string(json_view);
-                        std::cout << "\n";
+                        std::cout << (options.json_only ? "" : "\n");
                         to_stream(std::cout, value, 2);
-                        std::cout << "\n";
+                        std::cout << (options.json_only ? ",\n" : "\n");
                         pos += state;
                         continue;
                     } catch (pegtl::parse_error const& e) {
@@ -63,7 +79,9 @@ int main() {
                     }
                 } // end - if view not empty
             }     // end if - candidate for document
-            std::cout << line[pos];
+            if(!options.json_only) {
+                std::cout << line[pos];
+            }
         } // end loop - for pos in string
     }     // end loop - for line in input
 
