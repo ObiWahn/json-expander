@@ -70,7 +70,7 @@ int main(int count, char const* values[]) {
                         auto value = from_string(json_view);
                         std::cout << (options.json_only ? "" : "\n");
                         to_stream(std::cout, value, 2);
-                        std::cout << (options.json_only ? ",\n" : "\n");
+                        std::cout << "\n";
                         pos += state;
                         continue;
                     } catch (pegtl::parse_error const& e) {
