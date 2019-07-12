@@ -1,6 +1,6 @@
+#include <cstring>
 #include <iostream>
 #include <string>
-#include <cstring>
 
 #include <tao/json.hpp>
 #include <tao/json/external/pegtl.hpp>
@@ -31,16 +31,15 @@ struct action<value> {
 };
 
 struct options {
-    bool json_only=false;
+    bool json_only = false;
 };
 
 options parse_args(int count, char const* values[]) {
     options opts;
-    for(std::size_t i = 1; i < count; i++) {
-        if( std::strcmp(values[i], "--json-only") == 0 ) {
-            opts.json_only=true;
+    for (std::size_t i = 1; i < count; i++) {
+        if (std::strcmp(values[i], "--json-only") == 0) {
+            opts.json_only = true;
         }
-
     }
     return opts;
 };
@@ -79,7 +78,7 @@ int main(int count, char const* values[]) {
                     }
                 } // end - if view not empty
             }     // end if - candidate for document
-            if(!options.json_only) {
+            if (!options.json_only) {
                 std::cout << line[pos];
             }
         } // end loop - for pos in string
