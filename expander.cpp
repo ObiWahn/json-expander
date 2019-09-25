@@ -8,12 +8,18 @@
 #include <tao/json/external/pegtl/memory_input.hpp>
 
 using namespace tao::json;
+using namespace std::literals::string_literals;
 
 namespace expander {
 
-using value = pegtl::json::object;
-using grammar = pegtl::must<value, pegtl::star<pegtl::any>>;
-using state = std::size_t;
+struct value : pegtl::try_catch<pegtl::sor<pegtl::json::object, pegtl::json::array>> {};
+struct any : pegtl::any {};
+struct grammar : pegtl::star<pegtl::sor<value, any>> {};
+
+struct state {
+    bool json_only = false;
+    std::string value;
+};
 
 // default action
 template<typename rule>
@@ -24,8 +30,21 @@ template<>
 struct action<value> {
     template<typename input>
     static void apply(input const& in, state& s) {
-        if (in.position().byte_in_line == 0) {
-            s = in.size();
+        auto value = tao::json::from_string(in.string_view());
+        if (!s.json_only) {
+            s.value += "\n"s;
+        }
+        s.value += to_string(value, 2);
+        s.value += "\n"s;
+    }
+};
+
+template<>
+struct action<any> {
+    template<typename input>
+    static void apply(input const& in, state& s) {
+        if (!s.json_only) {
+            s.value += in.string();
         }
     }
 };
@@ -44,45 +63,28 @@ options parse_args(int count, char const* values[]) {
     return opts;
 };
 
-
 } // namespace expander
 
 int main(int count, char const* values[]) {
+    int error = 0;
     std::size_t pos;
     expander::state state;
     auto options = expander::parse_args(count, values);
+    state.json_only = options.json_only;
 
     for (std::string line; std::getline(std::cin, line);) {
-        for (std::size_t pos = 0; pos < line.size(); pos++) {
-            state = 0;
-            if (line[pos] == '{') {
-                std::string_view view(line.data() + pos, line.length() - pos);
-                pegtl::memory_input in(view, std::string("symbol at: " + std::to_string(pos)));
-                try {
-                    bool is_json = pegtl::parse<expander::grammar, expander::action>(in, state);
-                } catch (std::exception const& ex) {
-                    state = 0;
-                }
+        state.value.clear();
+        try {
+            pegtl::memory_input in(line, "");
+            pegtl::parse<expander::grammar, expander::action>(in, state);
+        } catch (std::exception const& ex) {
+            std::cerr << ex.what();
+            state.value = std::move(line);
+            error = 1;
+        }
 
-                std::string_view json_view(line.data() + pos, state);
-                if (!json_view.empty()) {
-                    try {
-                        auto value = from_string(json_view);
-                        std::cout << (options.json_only ? "" : "\n");
-                        to_stream(std::cout, value, 2);
-                        std::cout << "\n";
-                        pos += state;
-                        continue;
-                    } catch (pegtl::parse_error const& e) {
-                        std::cout << "error for position: " << pos << " " << e.what() << std::endl;
-                    }
-                } // end - if view not empty
-            }     // end if - candidate for document
-            if (!options.json_only) {
-                std::cout << line[pos];
-            }
-        } // end loop - for pos in string
-    }     // end loop - for line in input
+        std::cout << state.value;
+    } // end loop - for line in input
 
-    return 0;
+    return error;
 }
